@@ -1,15 +1,13 @@
 package pl.wardrobes.gcode
 
+import pl.wardrobes.gcode.image.JpgImageReader
 import pl.wardrobes.gcode.writer.GCodePathWriter
 import pl.wardrobes.gcode.writer.GnuplotPathWriter
 import java.io.File
-import javax.imageio.ImageIO
 
 fun main() {
     Converter().test()
 }
-
-const val BLACK_RGB_VALUE = -16777216
 
 const val OFFSET_X = 140
 const val OFFSET_Y = -7
@@ -25,27 +23,12 @@ class Converter {
             appendln("S1")
             appendln("M3")
             appendln("F140")
-            (1..5).forEach { fileName ->
-                val imageFile = File("C:\\Users\\Rafal\\Desktop\\lapa\\1$fileName.jpg")
-
-                val points = mutableListOf<Point>()
-
-                ImageIO.read(imageFile).run {
-                    (0 until width).forEach { horizontalIndex ->
-                        (0 until height).forEach { verticalIndex ->
-                            val rgbValue = getRGB(horizontalIndex, verticalIndex)
-                            if (rgbValue == BLACK_RGB_VALUE) {
-                                points.add(
-                                    Point(
-                                        xValue = (horizontalIndex / 10F) + OFFSET_X,
-                                        yValue = (verticalIndex / 10F) + OFFSET_Y
-                                    )
-                                )
-                            }
-                        }
-                    }
-                }
-                val path = createPath(points)
+            val imageFile = File("C:\\Users\\Rafal\\Desktop\\lapa\\lapa_cala.jpg")
+            val points = JpgImageReader.read(imageFile)
+            val pointsGroups = points.group()
+            pointsGroups.forEachIndexed { index, currentGroup ->
+                println("Group $index:")
+                val path = createPath(currentGroup)
                 appendln(GCodePathWriter.buildString(path))
                 println(GnuplotPathWriter.buildString(path))
             }
@@ -62,6 +45,16 @@ data class Point(
     val xValue: Float,
     val yValue: Float
 )
+
+private fun List<Point>.group(): List<List<Point>> {
+    val pointsGroups = mutableListOf<MutableList<Point>>()
+    val minDistance = 2 // 1^2 + 1^2 -- think about sqrt from this value!
+    forEach { currentPoint ->
+        val group = pointsGroups.find { currentGroup -> currentGroup.any { dist(it, currentPoint) < minDistance } }
+        if (group == null) pointsGroups.add(mutableListOf(currentPoint)) else group.add(currentPoint)
+    }
+    return pointsGroups
+}
 
 private fun createPath(restOfPoints: List<Point>, startPoint: Point? = null): List<Point> {
     val modifiedPoints = mutableListOf<Point>()
