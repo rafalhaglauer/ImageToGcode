@@ -1,5 +1,7 @@
 package pl.wardrobes.gcode
 
+import pl.wardrobes.gcode.writer.GCodePathWriter
+import pl.wardrobes.gcode.writer.GnuplotPathWriter
 import java.io.File
 import javax.imageio.ImageIO
 
@@ -9,8 +11,7 @@ fun main() {
 
 const val BLACK_RGB_VALUE = -16777216
 
-//const val OFFSET_X = 140
-const val OFFSET_X = 139
+const val OFFSET_X = 140
 const val OFFSET_Y = -7
 
 const val DRILLING_SIZE = 5f
@@ -44,17 +45,9 @@ class Converter {
                         }
                     }
                 }
-
                 val path = createPath(points)
-                val firstPoint = path.first()
-                appendln("G0 Z20")
-                appendln("G0 X${firstPoint.xValue} Y${firstPoint.yValue} Z20")
-                path.forEach {
-                    println("${it.xValue} -${it.yValue}")
-                    appendln("G1 X${it.xValue} Y${it.yValue} Z14")
-                }
-                println("FileName: $fileName")
-                appendln("G0 Z20")
+                appendln(GCodePathWriter.buildString(path))
+                println(GnuplotPathWriter.buildString(path))
             }
             appendln("M2")
             appendln("%")
