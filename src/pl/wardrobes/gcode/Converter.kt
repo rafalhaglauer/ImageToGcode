@@ -12,7 +12,11 @@ fun main() {
 const val OFFSET_X = 140
 const val OFFSET_Y = -7
 
-const val DRILLING_SIZE = 5f
+const val SCALE = 0.1F
+
+const val DRILLING_SIZE = 5f / SCALE
+
+const val FILE_NAME = "lapsko_border"
 
 class Converter {
 
@@ -23,20 +27,25 @@ class Converter {
             appendln("S1")
             appendln("M3")
             appendln("F140")
-            val imageFile = File("C:\\Users\\Rafal\\Desktop\\lapa\\lapa_cala.jpg")
+            val imageFile = File("C:\\Users\\Rafal\\Desktop\\$FILE_NAME.bmp")
             val points = JpgImageReader.read(imageFile)
             val pointsGroups = points.group()
+            val firstPoint = pointsGroups.first().first()
+            appendln("G0 X${firstPoint.xValue} Y${firstPoint.yValue} Z50")
             pointsGroups.forEachIndexed { index, currentGroup ->
-                println("Group $index:")
-                val path = createPath(currentGroup)
+//                println("Group $index:")
+                val path = createPath(currentGroup).map {
+                    Point(it.xValue * SCALE + OFFSET_X, it.yValue * SCALE + OFFSET_Y)
+                }
                 appendln(GCodePathWriter.buildString(path))
                 println(GnuplotPathWriter.buildString(path))
             }
+            println("pointsGroups.size: ${pointsGroups.size}")
             appendln("M2")
             appendln("%")
         }
 
-        val codeFile = File("C:\\Users\\Rafal\\Desktop\\lapa\\lapa_nowy_algorytm_2.ngc")
+        val codeFile = File("C:\\Users\\Rafal\\Desktop\\lapa\\$FILE_NAME.ngc")
         codeFile.writeText(code)
     }
 }
@@ -53,45 +62,56 @@ private fun List<Point>.group(): List<List<Point>> {
         val group = pointsGroups.find { currentGroup -> currentGroup.any { dist(it, currentPoint) < minDistance } }
         if (group == null) pointsGroups.add(mutableListOf(currentPoint)) else group.add(currentPoint)
     }
-    return pointsGroups
+    return pointsGroups.mergeGroups()
 }
+
+private fun List<List<Point>>.mergeGroups(): List<List<Point>> {
+    val pointsGroups = mutableListOf<MutableList<Point>>()
+    val minDistance = 2 // 1^2 + 1^2 -- think about sqrt from this value!
+    forEach { currentGroup ->
+        val group = pointsGroups.find { group ->
+            group.any { point1 -> currentGroup.any { point2 -> dist(point1, point2) < minDistance } }
+        }
+        if (group == null) pointsGroups.add(currentGroup.toMutableList()) else group.addAll(currentGroup)
+    }
+    return if (size == pointsGroups.size) pointsGroups else pointsGroups.mergeGroups()
+}
+
+// TODO :: IF DISTANCE > 2 THEN G0 Z20 G0 GO TO POINT
 
 private fun createPath(restOfPoints: List<Point>, startPoint: Point? = null): List<Point> {
     val modifiedPoints = mutableListOf<Point>()
 
     val xValues = restOfPoints.map { it.xValue }.distinct()
 
-    val xMin = xValues.min()
-    val xMax = xValues.max()
-
     xValues.forEach { xValue ->
         val yValuesForX = restOfPoints.filter { it.xValue == xValue }.map { it.yValue }
 
-        if (xValue == xMin || xValue == xMax) {
-            modifiedPoints.addAll(yValuesForX.map {
-                Point(xValue = xValue, yValue = it)
-            })
-        } else {
-            val min = requireNotNull(yValuesForX.min())
-            val max = requireNotNull(yValuesForX.max())
-            modifiedPoints.add(Point(xValue = xValue, yValue = min))
-            modifiedPoints.add(Point(xValue = xValue, yValue = max))
+        yValuesForX.forEach { yValue ->
+            if (
+                !restOfPoints.contains(Point(xValue - 1, yValue)) ||
+                !restOfPoints.contains(Point(xValue + 1, yValue)) ||
+                !restOfPoints.contains(Point(xValue, yValue - 1)) ||
+                !restOfPoints.contains(Point(xValue, yValue + 1))
+            ) {
+                modifiedPoints.add(Point(xValue = xValue, yValue = yValue))
+            }
         }
     }
 
     val closedPath = getClosedPathOf(modifiedPoints, startPoint ?: modifiedPoints.findBottomMostPoint())
 
-    val firstPointOfClosedPath = closedPath.first()
-
     val nextPoints = restOfPoints.toMutableList()
-    closedPath.forEach { currentPoint -> nextPoints.removeAll { dist(it, currentPoint) < (DRILLING_SIZE / 2) } }
+    val halfDrillingSize = DRILLING_SIZE / 2
+    val toolPath = halfDrillingSize * halfDrillingSize
+    closedPath.forEach { currentPoint -> nextPoints.removeAll { dist(it, currentPoint) < toolPath } }
 
     return if (nextPoints.isEmpty()) {
-        closedPath.plus(firstPointOfClosedPath)
+        closedPath
     } else {
-        closedPath.plus(firstPointOfClosedPath) + createPath(
+        closedPath + createPath(
             nextPoints,
-            startPoint = requireNotNull(nextPoints.minBy { dist(firstPointOfClosedPath, it) })
+            startPoint = requireNotNull(nextPoints.minBy { dist(closedPath.last(), it) })
         )
     }
 }
@@ -122,3 +142,4 @@ fun List<Point>.findBottomMostPoint(): Point {
     val yMin = map { it.yValue }.min()
     return requireNotNull(filter { it.yValue == yMin }.minBy { it.xValue })
 }
+// TODO <= 2 instead of < 2!

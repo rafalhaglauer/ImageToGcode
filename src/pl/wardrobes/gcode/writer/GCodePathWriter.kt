@@ -1,14 +1,29 @@
 package pl.wardrobes.gcode.writer
 
 import pl.wardrobes.gcode.Point
+import java.util.*
 
 object GCodePathWriter : PathWriter {
 
+    private const val minDistance = 2 // 1^2 + 1^2 -- think about sqrt from this value!
+
     override fun buildString(path: List<Point>): String = buildString {
-        val firstPoint = path.first()
-        appendln("G0 X${firstPoint.xValue} Y${firstPoint.yValue} Z50")
-        appendln("G0 X${firstPoint.xValue} Y${firstPoint.yValue} Z20")
-        appendln(path.joinToString(separator = "\n") { "G1 X${it.xValue} Y${it.yValue} Z14" })
+        var lastPoint: Point? = null
+        path.forEach { currentPoint ->
+            if (lastPoint == null || dist(requireNotNull(lastPoint), currentPoint) > minDistance) {
+                appendln("G0 X${formatPoint(currentPoint.xValue)} Y${formatPoint(currentPoint.yValue)} Z20")
+            }
+            appendln("G1 X${formatPoint(currentPoint.xValue)} Y${formatPoint(currentPoint.yValue)} Z14")
+            lastPoint = currentPoint
+        }
         append("G0 Z20")
     }
+
+    private fun dist(p1: Point, p2: Point): Float {
+        return (p1.xValue - p2.xValue) * (p1.xValue - p2.xValue) + (p1.yValue - p2.yValue) * (p1.yValue - p2.yValue)
+    }
 }
+
+fun formatPoint(value: Float) = String.format(Locale.US, "%.1f", value)
+
+// TODO analize!

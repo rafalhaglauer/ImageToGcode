@@ -1,7 +1,5 @@
 package pl.wardrobes.gcode.image
 
-import pl.wardrobes.gcode.OFFSET_X
-import pl.wardrobes.gcode.OFFSET_Y
 import pl.wardrobes.gcode.Point
 import java.io.File
 import javax.imageio.ImageIO
@@ -18,8 +16,8 @@ object JpgImageReader : ImageReader {
                     if (rgbValue == BLACK_RGB_VALUE) {
                         add(
                             Point(
-                                xValue = (horizontalIndex / 10F) + OFFSET_X,
-                                yValue = (verticalIndex / 10F) + OFFSET_Y
+                                xValue = horizontalIndex.toFloat(),
+                                yValue = verticalIndex.toFloat()
                             )
                         )
                     }
