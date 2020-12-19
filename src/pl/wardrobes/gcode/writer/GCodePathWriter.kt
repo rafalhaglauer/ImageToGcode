@@ -11,12 +11,12 @@ object GCodePathWriter : PathWriter {
         var lastPoint: Point? = null
         path.forEach { currentPoint ->
             if (lastPoint == null || dist(requireNotNull(lastPoint), currentPoint) > minDistance) {
-                appendln("G0 X${formatPoint(currentPoint.xValue)} Y${formatPoint(currentPoint.yValue)} Z20")
+                appendln("G0 X${formatPoint(currentPoint.xValue)} Y${formatPoint(currentPoint.yValue)} Z10")
             }
-            appendln("G1 X${formatPoint(currentPoint.xValue)} Y${formatPoint(currentPoint.yValue)} Z14")
+            appendln("G1 X${formatPoint(currentPoint.xValue)} Y${formatPoint(currentPoint.yValue)} Z3")
             lastPoint = currentPoint
         }
-        append("G0 Z20")
+        append("G0 Z10")
     }
 
     private fun dist(p1: Point, p2: Point): Float {

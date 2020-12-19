@@ -4,49 +4,66 @@ import pl.wardrobes.gcode.image.JpgImageReader
 import pl.wardrobes.gcode.writer.GCodePathWriter
 import pl.wardrobes.gcode.writer.GnuplotPathWriter
 import java.io.File
+import java.util.*
 
 fun main() {
     Converter().test()
 }
 
-const val OFFSET_X = 140
-const val OFFSET_Y = -7
+//const val OFFSET_X = 140
+//const val OFFSET_Y = -7
+//const val OFFSET_X = 20
+//const val OFFSET_Y = 20
+const val OFFSET_X = 0
+const val OFFSET_Y = 0
 
-const val SCALE = 0.1F
+const val SCALE = 0.05F
 
 const val DRILLING_SIZE = 5f / SCALE
 
-const val FILE_NAME = "lapsko_border"
+const val FILE_NAME = "choinka"
 
 class Converter {
 
     fun test() {
-
+        val currentTime = Date()
         val code = buildString {
             appendln("%")
             appendln("S1")
             appendln("M3")
             appendln("F140")
-            val imageFile = File("C:\\Users\\Rafal\\Desktop\\$FILE_NAME.bmp")
+            val imageFile = File("C:\\Users\\Rafal\\Desktop\\ozdoby\\$FILE_NAME.bmp")
             val points = JpgImageReader.read(imageFile)
             val pointsGroups = points.group()
             val firstPoint = pointsGroups.first().first()
-            appendln("G0 X${firstPoint.xValue} Y${firstPoint.yValue} Z50")
-            pointsGroups.forEachIndexed { index, currentGroup ->
-//                println("Group $index:")
+            appendln("G0 X${firstPoint.xValue * SCALE + OFFSET_X} Y${firstPoint.yValue * SCALE + OFFSET_Y} Z50")
+            pointsGroups.forEach { currentGroup ->
                 val path = createPath(currentGroup).map {
-                    Point(it.xValue * SCALE + OFFSET_X, it.yValue * SCALE + OFFSET_Y)
-                }
+                    Point(
+                        xValue = ((it.xValue * SCALE + OFFSET_X) * 10).toInt() / 10f,
+                        yValue = ((it.yValue * SCALE + OFFSET_Y)  * 10).toInt() / 10f
+                    )
+                }.distinct()
                 appendln(GCodePathWriter.buildString(path))
                 println(GnuplotPathWriter.buildString(path))
             }
             println("pointsGroups.size: ${pointsGroups.size}")
+            val allPoints = pointsGroups.flatten()
+            val xValues = allPoints.map { it.xValue * SCALE + OFFSET_X }
+            val yValues = allPoints.map { it.yValue * SCALE + OFFSET_Y }
+            val xMax = requireNotNull(xValues.max())
+            val xMin = requireNotNull(xValues.min())
+            val yMax = requireNotNull(yValues.max())
+            val yMin = requireNotNull(yValues.min())
+            println("Min X: $xMin - Max X: $xMax - Width: ${xMax - xMin}")
+            println("Min Y: $yMin - Max Y: $yMax - Height: ${yMax - yMin}")
             appendln("M2")
             appendln("%")
         }
 
-        val codeFile = File("C:\\Users\\Rafal\\Desktop\\lapa\\$FILE_NAME.ngc")
+        val codeFile = File("C:\\Users\\Rafal\\Desktop\\ozdoby\\$FILE_NAME.ngc")
         codeFile.writeText(code)
+        println("Took: ${(Date().time - currentTime.time) / 1000}s")
     }
 }
 
@@ -76,8 +93,6 @@ private fun List<List<Point>>.mergeGroups(): List<List<Point>> {
     }
     return if (size == pointsGroups.size) pointsGroups else pointsGroups.mergeGroups()
 }
-
-// TODO :: IF DISTANCE > 2 THEN G0 Z20 G0 GO TO POINT
 
 private fun createPath(restOfPoints: List<Point>, startPoint: Point? = null): List<Point> {
     val modifiedPoints = mutableListOf<Point>()
